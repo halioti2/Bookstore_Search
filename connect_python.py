@@ -1,8 +1,13 @@
-from pinecone import Pinecone, Index
 import os
+import time
+from dotenv import load_dotenv
+from pinecone import Pinecone, Index
+
+load_dotenv()
 
 # Replace with your API key and environment
-pc = Pinecone(api_key="pcsk_3jvWYQ_F79ESnTaE9tFj5G3j9xPArR65f9ovcVrnJ489EhetFx4jfq2f4vgQbvpdcHqhWr")
+api_key = os.environ.get("PINECONE_API_KEY")
+pc = Pinecone(api_key)
 
 # Create a dense index with integrated embedding
 index_name = "dense-index"
