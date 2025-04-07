@@ -21,6 +21,9 @@ def hello_world():
 @app.route('/reset_book', methods=['POST'])
 def reset_book():
     try:
+                # Target the index
+        dense_index = pc.Index(index_name)
+        
         # Delete the index
         pc.delete_index(index_name)
         
@@ -42,8 +45,11 @@ def reset_book():
         # Wait for the index to stabilize
         time.sleep(10)
 
-        return jsonify({"message": "Index reset successfully."}), 200
-
+        # View stats for the index
+        stats = dense_index.describe_index_stats()
+        print(f"test")
+        print(stats)
+        return jsonify({"message": "Books reset successfully."}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -86,6 +92,58 @@ def add_book():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/search', methods=['GET'])
+def search():
+    # 1. Get the search query from the URL
+    query = request.args.get('q')
+    
+    if not query:
+        return jsonify({"error": "Missing query parameter 'q'."}), 400
+
+    # Target the index
+    dense_index = pc.Index(index_name)
+
+    try:
+        # Perform the search in Pinecone
+        results = dense_index.search(
+            namespace="example-namespace",
+            query={
+                "top_k": 10,
+                "inputs": {
+                    "text": query
+                }
+            }
+        )
+
+        # Check if there are any hits
+        hits = results.get('result', {}).get('hits', [])
+        if not hits:
+            return jsonify({"answer": None, "message": "No results found"}), 404
+
+        # Take the top result (first hit)
+        top_hit = hits[0]
+
+        # Build a clean dictionary
+        answer = {
+            "id": top_hit['_id'],
+            "score": round(top_hit['_score'], 2),
+            "text": top_hit['fields']['chunk_text'],
+            "category": top_hit['fields']['category']
+        }
+
+        # Return the result as JSON
+        return jsonify({"answer": answer}), 200
+
+    except Exception as e:
+        print(f"Error during search: {e}")
+        return jsonify({"error": str(e)}), 500
+
+        # Print the results
+        # for hit in results['result']['hits']:
+        #     print(f"id: {hit['_id']}, score: {round(hit['_score'], 2)}, text: {hit['fields']['chunk_text']}, category: {hit['fields']['category']}")
+
+    
+
 # Create a dense index with integrated embedding
 index_name = "dense-index"
 
@@ -107,6 +165,65 @@ else:
 # Connect to the index
 index = pc.Index(index_name)
 print(f"Successfully connected to Pinecone index: {index_name}")
+
+# record setup
+records = [
+    { "_id": "book_001", "chunk_text": "Title: The Lord of the Rings. Author: J.R.R. Tolkien. ISBN: 978-0618260214. Description: A classic fantasy tale of good versus evil.", "category": "fantasy" },
+    { "_id": "book_002", "chunk_text": "Title: Pride and Prejudice. Author: Jane Austen. ISBN: 978-0141439518. Description: A romance novel set in the English countryside.", "category": "classic" },
+    { "_id": "book_003", "chunk_text": "Title: 1984. Author: George Orwell. ISBN: 978-0451524935. Description: A dystopian novel about totalitarianism.", "category": "dystopian" },
+    { "_id": "book_004", "chunk_text": "Title: To Kill a Mockingbird. Author: Harper Lee. ISBN: 978-0446310757. Description: A novel about racial injustice in the American South.", "category": "classic" },
+    { "_id": "book_005", "chunk_text": "Title: The Great Gatsby. Author: F. Scott Fitzgerald. ISBN: 978-0743273565. Description: A novel about the Roaring Twenties.", "category": "classic" },
+    { "_id": "book_006", "chunk_text": "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams. ISBN: 978-0345391803. Description: A comedic science fiction adventure.", "category": "science fiction" },
+    { "_id": "book_007", "chunk_text": "Title: Dune. Author: Frank Herbert. ISBN: 978-0441172719. Description: A science fiction epic on a desert planet.", "category": "science fiction" },
+    { "_id": "book_008", "chunk_text": "Title: The Martian. Author: Andy Weir. ISBN: 978-0553417765. Description: A science fiction survival story.", "category": "science fiction" },
+    { "_id": "book_009", "chunk_text": "Title: And Then There Were None. Author: Agatha Christie. ISBN: 978-0062073483. Description: A classic murder mystery.", "category": "mystery" },
+    { "_id": "book_010", "chunk_text": "Title: The Girl with the Dragon Tattoo. Author: Stieg Larsson. ISBN: 978-0307269751. Description: A crime thriller.", "category": "thriller" },
+    { "_id": "book_011", "chunk_text": "Title: Gone with the Wind. Author: Margaret Mitchell. ISBN: 978-1451635621. Description: A historical romance set during the Civil War.", "category": "historical romance" },
+    { "_id": "book_012", "chunk_text": "Title: The Secret Garden. Author: Frances Hodgson Burnett. ISBN: 978-0140300582. Description: A children's classic about a hidden garden.", "category": "childrens" },
+    { "_id": "book_013", "chunk_text": "Title: Moby Dick. Author: Herman Melville. ISBN: 978-0553213119. Description: A novel about a whale hunt.", "category": "classic" },
+    { "_id": "book_014", "chunk_text": "Title: War and Peace. Author: Leo Tolstoy. ISBN: 978-0679783268. Description: A historical novel set during the Napoleonic Wars.", "category": "historical" },
+    { "_id": "book_015", "chunk_text": "Title: The Catcher in the Rye. Author: J.D. Salinger. ISBN: 978-0316769488. Description: A coming-of-age story.", "category": "coming-of-age" },
+    { "_id": "book_016", "chunk_text": "Title: The Picture of Dorian Gray. Author: Oscar Wilde. ISBN: 978-0486277456. Description: A philosophical novel.", "category": "classic" },
+    { "_id": "book_017", "chunk_text": "Title: Dracula. Author: Bram Stoker. ISBN: 978-0553213133. Description: A gothic horror novel.", "category": "horror" },
+    { "_id": "book_018", "chunk_text": "Title: Frankenstein. Author: Mary Shelley. ISBN: 978-0486282115. Description: A science fiction horror novel.", "category": "horror" },
+    { "_id": "book_019", "chunk_text": "Title: The Handmaid's Tale. Author: Margaret Atwood. ISBN: 978-0385490818. Description: A dystopian novel about a totalitarian society.", "category": "dystopian" },
+    { "_id": "book_020", "chunk_text": "Title: The Hobbit. Author: J.R.R. Tolkien. ISBN: 978-0618260207. Description: A children's fantasy novel.", "category": "fantasy" }
+]
+
+# Target the index
+dense_index = pc.Index(index_name)
+
+# Upsert the records into a namespace
+dense_index.upsert_records("example-namespace", records)
+
+# Wait for the upserted vectors to be indexed
+import time
+time.sleep(10)
+
+# View stats for the index
+stats = dense_index.describe_index_stats()
+print(stats)
+
+# Define the query
+query = "Lord of the Rings"
+
+# Search the dense index
+results = dense_index.search(
+    namespace="example-namespace",
+    query={
+        "top_k": 10,
+        "inputs": {
+            'text': query
+        }
+    }
+)
+
+# Print the results
+for hit in results['result']['hits']:
+    print(f"id: {hit['_id']}, score: {round(hit['_score'], 2)}, text: {hit['fields']['chunk_text']}, category: {hit['fields']['category']}")
+
+# # Delete the index
+# pc.delete_index(index_name)
 
 if __name__ == '__main__':
     app.run(debug=True)

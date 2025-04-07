@@ -112,20 +112,20 @@ if __name__ == '__main__':
 # # Define the query
 # query = "Lord of the Rings"
 
-# # Search the dense index
-# results = dense_index.search(
-#     namespace="example-namespace",
-#     query={
-#         "top_k": 10,
-#         "inputs": {
-#             'text': query
-#         }
-#     }
-# )
+# Search the dense index
+results = dense_index.search(
+    namespace="example-namespace",
+    query={
+        "top_k": 10,
+        "inputs": {
+            'text': query
+        }
+    }
+)
 
-# # # Print the results
-# # for hit in results['result']['hits']:
-# #     print(f"id: {hit['_id']}, score: {round(hit['_score'], 2)}, text: {hit['fields']['chunk_text']}, category: {hit['fields']['category']}")
+# Print the results
+for hit in results['result']['hits']:
+    print(f"id: {hit['_id']}, score: {round(hit['_score'], 2)}, text: {hit['fields']['chunk_text']}, category: {hit['fields']['category']}")
 
 # # Search the dense index and rerank results
 # reranked_results = dense_index.search(
