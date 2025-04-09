@@ -1,7 +1,7 @@
 import os
 import time
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from pinecone import Pinecone, Index
 import json
 import uuid
@@ -14,9 +14,9 @@ pc = Pinecone(api_key)
 
 app = Flask(__name__)
 
-@app.route('/') # This means, when you visit the homepage (/)
-def hello_world():
-    return "Hello, World!"
+@app.route('/')
+def homepage():
+    return render_template('index.html')
 
 @app.route('/reset_book', methods=['POST'])
 def reset_book():
