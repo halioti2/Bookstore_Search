@@ -75,15 +75,24 @@
       const data = await response.json();
 
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '';
+      resultsDiv.innerHTML = ''; // Clear previous results
 
-      const books = data.results || (data.answer ? [data.answer] : []);
+      const books = data.results || []; // Expect results array, default to empty
+
+      if (books.length === 0) {
+          resultsDiv.innerHTML = '<p>No books found matching your query.</p>';
+          return;
+      }
 
       books.forEach(book => {
+        // Extract title more reliably if possible, otherwise use start of text
+        let title = book.text.match(/Title: (.*?)\./);
+        title = title ? title[1] : book.text.split('.')[0]; // Fallback to first sentence part
+
         const bookHTML = `
           <div class="book-card">
-            <h3>${book.text.split('.')[0]}</h3>
-            <p>${book.text}</p>
+            <h3>${title}</h3>
+            <p>${book.text}</p> <!-- Display full text for context -->
             <div class="book-tags">
               <strong>Category:</strong> ${book.category || 'N/A'}<br>
               <strong>Score:</strong> ${book.score || 'N/A'}

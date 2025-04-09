@@ -108,7 +108,7 @@ def search():
         results = dense_index.search(
             namespace="example-namespace",
             query={
-                "top_k": 10,
+                "top_k": 5,  # Fetch top 5 results
                 "inputs": {
                     "text": query
                 }
@@ -118,21 +118,20 @@ def search():
         # Check if there are any hits
         hits = results.get('result', {}).get('hits', [])
         if not hits:
-            return jsonify({"answer": None, "message": "No results found"}), 404
+            return jsonify({"results": [], "message": "No results found"}), 404
 
-        # Take the top result (first hit)
-        top_hit = hits[0]
+        # Process all hits
+        formatted_results = []
+        for hit in hits:
+            formatted_results.append({
+                "id": hit['_id'],
+                "score": round(hit['_score'], 2),
+                "text": hit['fields']['chunk_text'],
+                "category": hit['fields']['category']
+            })
 
-        # Build a clean dictionary
-        answer = {
-            "id": top_hit['_id'],
-            "score": round(top_hit['_score'], 2),
-            "text": top_hit['fields']['chunk_text'],
-            "category": top_hit['fields']['category']
-        }
-
-        # Return the result as JSON
-        return jsonify({"answer": answer}), 200
+        # Return the list of results as JSON
+        return jsonify({"results": formatted_results}), 200
 
     except Exception as e:
         print(f"Error during search: {e}")
