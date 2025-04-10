@@ -48,6 +48,11 @@
       margin-bottom: 1rem;
       border-radius: 0.75rem;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .book-card:hover {
+      background-color: #f0f0f0;
     }
     .book-card h3 {
       margin-top: 0;
@@ -56,12 +61,17 @@
       font-size: 0.9rem;
       color: #555;
     }
-    .truncate {
+    .description {
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
+      transition: all 0.3s ease;
+    }
+    .book-card.expanded .description {
+      -webkit-line-clamp: unset;
+      overflow: visible;
     }
   </style>
 </head>
@@ -99,17 +109,20 @@
 
       books.forEach(book => {
         const description = extractDescription(book.text);
-        const bookHTML = `
-          <div class="book-card">
-            <h3>${book.text.split('.')[0]}</h3>
-            <p class="truncate">${description}</p>
-            <div class="book-tags">
-              <strong>Category:</strong> ${book.category || 'N/A'}<br>
-              <strong>Score:</strong> ${book.score || 'N/A'}
-            </div>
+        const card = document.createElement('div');
+        card.className = 'book-card';
+        card.innerHTML = `
+          <h3>${book.text.split('.')[0]}</h3>
+          <p class="description">${description}</p>
+          <div class="book-tags">
+            <strong>Category:</strong> ${book.category || 'N/A'}<br>
+            <strong>Score:</strong> ${book.score || 'N/A'}
           </div>
         `;
-        resultsDiv.innerHTML += bookHTML;
+        card.addEventListener('click', () => {
+          card.classList.toggle('expanded');
+        });
+        resultsDiv.appendChild(card);
       });
     }
 
