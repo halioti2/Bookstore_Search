@@ -56,6 +56,13 @@
       font-size: 0.9rem;
       color: #555;
     }
+    .truncate {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 </head>
 <body>
@@ -75,6 +82,12 @@
   <div class="results" id="results"></div>
 
   <script>
+    function getShortDescription(text) {
+      if (!text) return 'No description available.';
+      const sentences = text.split('. ');
+      return sentences.slice(0, 2).join('. ') + (sentences.length > 2 ? '...' : '');
+    }
+
     async function searchBooks() {
       const query = document.getElementById('query').value;
       const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
@@ -89,7 +102,7 @@
         const bookHTML = `
           <div class="book-card">
             <h3>${book.text.split('.')[0]}</h3>
-            <p>${book.text}</p>
+            <p class="truncate">${book.text}</p>
             <div class="book-tags">
               <strong>Category:</strong> ${book.category || 'N/A'}<br>
               <strong>Score:</strong> ${book.score || 'N/A'}
@@ -126,6 +139,7 @@
 
         if (addRes.ok) {
           alert("Book added successfully!");
+          document.getElementById('isbn').value = '';
         } else {
           alert(`Error adding book: ${result.error}`);
         }
