@@ -138,43 +138,81 @@ def search():
         print(f"Error during search: {e}")
         return jsonify({"error": str(e)}), 500
 
+import requests
+import uuid
+from flask import request, jsonify
+
 @app.route('/isbn_lookup', methods=['GET'])
 def isbn_lookup():
     isbn = request.args.get('isbn')
     if not isbn:
-        return jsonify({"error": "Missing query parameter 'isbn'."}), 400
-
-    # Basic ISBN format check (simple length check, not full validation)
-    if not (len(isbn) == 10 or len(isbn) == 13) or not isbn.isdigit():
-         # Allow ISBNs with hyphens by removing them first
-        isbn_cleaned = isbn.replace('-', '')
-        if not (len(isbn_cleaned) == 10 or len(isbn_cleaned) == 13) or not isbn_cleaned.isdigit():
-            return jsonify({"error": "Invalid ISBN format. Must be 10 or 13 digits (hyphens optional)."}), 400
-        isbn = isbn_cleaned # Use the cleaned version
-
-    api_url = f"https://openlibrary.org/isbn/{isbn}.json"
+        return jsonify({"error": "Missing 'isbn' query parameter."}), 400
 
     try:
-        response = requests.get(api_url)
-        
-        # Check if the book was found (status code 200)
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
-        # Handle cases where the ISBN is not found (status code 404)
-        elif response.status_code == 404:
-            return jsonify({"error": f"No book found for ISBN: {isbn}"}), 404
-        # Handle other potential API errors
-        else:
-            return jsonify({"error": f"Open Library API error. Status code: {response.status_code}", "details": response.text}), response.status_code
+        # Step 1: Fetch basic book info by ISBN
+        book_url = f"https://openlibrary.org/isbn/{isbn}.json"
+        book_res = requests.get(book_url)
+        if book_res.status_code != 200:
+            return jsonify({"error": f"No book found for ISBN {isbn}."}), 404
 
-    except requests.exceptions.RequestException as e:
-        # Handle network errors (e.g., connection timeout)
-        return jsonify({"error": "Could not connect to Open Library API.", "details": str(e)}), 503 # Service Unavailable
+        book_data = book_res.json()
+
+        # Step 2: Get author name(s)
+        author_names = []
+        for author in book_data.get("authors", []):
+            author_key = author.get("key")
+            if author_key:
+                author_res = requests.get(f"https://openlibrary.org{author_key}.json")
+                if author_res.status_code == 200:
+                    author_info = author_res.json()
+                    author_names.append(author_info.get("name"))
+
+        # Step 3: Get description from main record or work-level record
+        description = None
+        if isinstance(book_data.get("description"), dict):
+            description = book_data["description"].get("value")
+        elif isinstance(book_data.get("description"), str):
+            description = book_data["description"]
+
+        # Step 4: If description missing, try work-level
+        if not description and "works" in book_data:
+            work_key = book_data["works"][0].get("key")
+            if work_key:
+                work_res = requests.get(f"https://openlibrary.org{work_key}.json")
+                if work_res.status_code == 200:
+                    work_data = work_res.json()
+                    if isinstance(work_data.get("description"), dict):
+                        description = work_data["description"].get("value")
+                    elif isinstance(work_data.get("description"), str):
+                        description = work_data["description"]
+
+        # Step 5: Use first subject as category if available
+        category = "unknown"
+        if "subjects" in book_data and len(book_data["subjects"]) > 0:
+            category = book_data["subjects"][0]
+        elif "works" in book_data:
+            work_key = book_data["works"][0].get("key")
+            if work_key:
+                work_res = requests.get(f"https://openlibrary.org{work_key}.json")
+                if work_res.status_code == 200:
+                    work_data = work_res.json()
+                    if "subjects" in work_data and len(work_data["subjects"]) > 0:
+                        category = work_data["subjects"][0]
+
+        # Step 6: Format response
+        result = {
+            "_id": str(uuid.uuid4()),
+            "title": book_data.get("title"),
+            "author": ", ".join(author_names) if author_names else None,
+            "isbn": isbn,
+            "description": description,
+            "category": category
+        }
+
+        return jsonify(result), 200
+
     except Exception as e:
-        # Catch any other unexpected errors
-        print(f"Error during ISBN lookup: {e}")
-        return jsonify({"error": "An unexpected error occurred during ISBN lookup.", "details": str(e)}), 500
-
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
         # Print the results
         # for hit in results['result']['hits']:
