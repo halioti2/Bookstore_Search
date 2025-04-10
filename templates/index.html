@@ -11,13 +11,14 @@
       padding: 2rem;
       background-color: #f8f8f8;
     }
-    h1 {
+    h1, h2 {
       text-align: center;
     }
     .search-container {
       display: flex;
       justify-content: center;
-      margin-top: 2rem;
+      margin-top: 1.5rem;
+      gap: 1rem;
     }
     input[type="text"] {
       width: 60%;
@@ -28,7 +29,6 @@
     }
     button {
       padding: 0.75rem 1rem;
-      margin-left: 1rem;
       font-size: 1rem;
       background-color: #007bff;
       color: white;
@@ -66,6 +66,12 @@
     <button onclick="searchBooks()">Search</button>
   </div>
 
+  <h2>Add a Book by ISBN</h2>
+  <div class="search-container">
+    <input type="text" id="isbn" placeholder="Enter ISBN...">
+    <button onclick="addBookByISBN()">Add Book</button>
+  </div>
+
   <div class="results" id="results"></div>
 
   <script>
@@ -75,24 +81,15 @@
       const data = await response.json();
 
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = ''; // Clear previous results
+      resultsDiv.innerHTML = '';
 
-      const books = data.results || []; // Expect results array, default to empty
-
-      if (books.length === 0) {
-          resultsDiv.innerHTML = '<p>No books found matching your query.</p>';
-          return;
-      }
+      const books = data.results || (data.answer ? [data.answer] : []);
 
       books.forEach(book => {
-        // Extract title more reliably if possible, otherwise use start of text
-        let title = book.text.match(/Title: (.*?)\./);
-        title = title ? title[1] : book.text.split('.')[0]; // Fallback to first sentence part
-
         const bookHTML = `
           <div class="book-card">
-            <h3>${title}</h3>
-            <p>${book.text}</p> <!-- Display full text for context -->
+            <h3>${book.text.split('.')[0]}</h3>
+            <p>${book.text}</p>
             <div class="book-tags">
               <strong>Category:</strong> ${book.category || 'N/A'}<br>
               <strong>Score:</strong> ${book.score || 'N/A'}
@@ -101,6 +98,42 @@
         `;
         resultsDiv.innerHTML += bookHTML;
       });
+    }
+
+    async function addBookByISBN() {
+      const isbn = document.getElementById('isbn').value;
+      if (!isbn) {
+        alert("Please enter an ISBN.");
+        return;
+      }
+
+      try {
+        const lookupRes = await fetch(`/isbn_lookup?isbn=${encodeURIComponent(isbn)}`);
+        const bookData = await lookupRes.json();
+
+        if (!lookupRes.ok) {
+          alert(`Error: ${bookData.error}`);
+          return;
+        }
+
+        const addRes = await fetch('/add_book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bookData)
+        });
+
+        const result = await addRes.json();
+
+        if (addRes.ok) {
+          alert("Book added successfully!");
+        } else {
+          alert(`Error adding book: ${result.error}`);
+        }
+
+      } catch (err) {
+        alert("Something went wrong. Check the console.");
+        console.error(err);
+      }
     }
   </script>
 </body>
