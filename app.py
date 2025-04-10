@@ -138,10 +138,6 @@ def search():
         print(f"Error during search: {e}")
         return jsonify({"error": str(e)}), 500
 
-import requests
-import uuid
-from flask import request, jsonify
-
 @app.route('/isbn_lookup', methods=['GET'])
 def isbn_lookup():
     isbn = request.args.get('isbn')
@@ -149,60 +145,61 @@ def isbn_lookup():
         return jsonify({"error": "Missing 'isbn' query parameter."}), 400
 
     try:
-        # Step 1: Fetch basic book info by ISBN
+        # Step 1: Get the edition-level data
         book_url = f"https://openlibrary.org/isbn/{isbn}.json"
         book_res = requests.get(book_url)
         if book_res.status_code != 200:
             return jsonify({"error": f"No book found for ISBN {isbn}."}), 404
 
         book_data = book_res.json()
+        title = book_data.get("title")
 
-        # Step 2: Get author name(s)
+        # Step 2: Use work-level data to fetch authors and description fallback
         author_names = []
-        for author in book_data.get("authors", []):
-            author_key = author.get("key")
-            if author_key:
-                author_res = requests.get(f"https://openlibrary.org{author_key}.json")
-                if author_res.status_code == 200:
-                    author_info = author_res.json()
-                    author_names.append(author_info.get("name"))
-
-        # Step 3: Get description from main record or work-level record
         description = None
-        if isinstance(book_data.get("description"), dict):
-            description = book_data["description"].get("value")
-        elif isinstance(book_data.get("description"), str):
-            description = book_data["description"]
-
-        # Step 4: If description missing, try work-level
-        if not description and "works" in book_data:
-            work_key = book_data["works"][0].get("key")
-            if work_key:
-                work_res = requests.get(f"https://openlibrary.org{work_key}.json")
-                if work_res.status_code == 200:
-                    work_data = work_res.json()
-                    if isinstance(work_data.get("description"), dict):
-                        description = work_data["description"].get("value")
-                    elif isinstance(work_data.get("description"), str):
-                        description = work_data["description"]
-
-        # Step 5: Use first subject as category if available
         category = "unknown"
-        if "subjects" in book_data and len(book_data["subjects"]) > 0:
-            category = book_data["subjects"][0]
-        elif "works" in book_data:
+
+        if "works" in book_data and book_data["works"]:
             work_key = book_data["works"][0].get("key")
             if work_key:
-                work_res = requests.get(f"https://openlibrary.org{work_key}.json")
+                work_url = f"https://openlibrary.org{work_key}.json"
+                work_res = requests.get(work_url)
                 if work_res.status_code == 200:
                     work_data = work_res.json()
-                    if "subjects" in work_data and len(work_data["subjects"]) > 0:
-                        category = work_data["subjects"][0]
 
-        # Step 6: Format response
+                    # Author lookup
+                    for author in work_data.get("authors", []):
+                        author_key = author.get("author", {}).get("key")
+                        if author_key:
+                            author_res = requests.get(f"https://openlibrary.org{author_key}.json")
+                            if author_res.status_code == 200:
+                                author_info = author_res.json()
+                                author_names.append(author_info.get("name"))
+
+                    # Description fallback from work level
+                    desc = work_data.get("description")
+                    if isinstance(desc, dict):
+                        description = desc.get("value")
+                    elif isinstance(desc, str):
+                        description = desc
+
+                    # Category from subjects
+                    subjects = work_data.get("subjects", [])
+                    if subjects:
+                        category = subjects[0]
+
+        # Step 3: Description fallback from edition level
+        if not description:
+            desc = book_data.get("description")
+            if isinstance(desc, dict):
+                description = desc.get("value")
+            elif isinstance(desc, str):
+                description = desc
+
+        # Step 4: Assemble the final result
         result = {
             "_id": str(uuid.uuid4()),
-            "title": book_data.get("title"),
+            "title": title,
             "author": ", ".join(author_names) if author_names else None,
             "isbn": isbn,
             "description": description,
