@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template
 from pinecone import Pinecone, Index
 import json
 import uuid
+import requests # Add requests library for API calls
 
 load_dotenv()
 
@@ -136,6 +137,44 @@ def search():
     except Exception as e:
         print(f"Error during search: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/isbn_lookup', methods=['GET'])
+def isbn_lookup():
+    isbn = request.args.get('isbn')
+    if not isbn:
+        return jsonify({"error": "Missing query parameter 'isbn'."}), 400
+
+    # Basic ISBN format check (simple length check, not full validation)
+    if not (len(isbn) == 10 or len(isbn) == 13) or not isbn.isdigit():
+         # Allow ISBNs with hyphens by removing them first
+        isbn_cleaned = isbn.replace('-', '')
+        if not (len(isbn_cleaned) == 10 or len(isbn_cleaned) == 13) or not isbn_cleaned.isdigit():
+            return jsonify({"error": "Invalid ISBN format. Must be 10 or 13 digits (hyphens optional)."}), 400
+        isbn = isbn_cleaned # Use the cleaned version
+
+    api_url = f"https://openlibrary.org/isbn/{isbn}.json"
+
+    try:
+        response = requests.get(api_url)
+        
+        # Check if the book was found (status code 200)
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        # Handle cases where the ISBN is not found (status code 404)
+        elif response.status_code == 404:
+            return jsonify({"error": f"No book found for ISBN: {isbn}"}), 404
+        # Handle other potential API errors
+        else:
+            return jsonify({"error": f"Open Library API error. Status code: {response.status_code}", "details": response.text}), response.status_code
+
+    except requests.exceptions.RequestException as e:
+        # Handle network errors (e.g., connection timeout)
+        return jsonify({"error": "Could not connect to Open Library API.", "details": str(e)}), 503 # Service Unavailable
+    except Exception as e:
+        # Catch any other unexpected errors
+        print(f"Error during ISBN lookup: {e}")
+        return jsonify({"error": "An unexpected error occurred during ISBN lookup.", "details": str(e)}), 500
+
 
         # Print the results
         # for hit in results['result']['hits']:
