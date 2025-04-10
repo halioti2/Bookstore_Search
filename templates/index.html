@@ -82,10 +82,9 @@
   <div class="results" id="results"></div>
 
   <script>
-    function getShortDescription(text) {
-      if (!text) return 'No description available.';
-      const sentences = text.split('. ');
-      return sentences.slice(0, 2).join('. ') + (sentences.length > 2 ? '...' : '');
+    function extractDescription(chunkText) {
+      if (!chunkText.includes("Description:")) return "No description available.";
+      return chunkText.split("Description:")[1].trim();
     }
 
     async function searchBooks() {
@@ -99,10 +98,11 @@
       const books = data.results || (data.answer ? [data.answer] : []);
 
       books.forEach(book => {
+        const description = extractDescription(book.text);
         const bookHTML = `
           <div class="book-card">
             <h3>${book.text.split('.')[0]}</h3>
-            <p class="truncate">${book.text}</p>
+            <p class="truncate">${description}</p>
             <div class="book-tags">
               <strong>Category:</strong> ${book.category || 'N/A'}<br>
               <strong>Score:</strong> ${book.score || 'N/A'}
